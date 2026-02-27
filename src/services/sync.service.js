@@ -6,16 +6,8 @@ function pull(user, since) {
   const logId = startSyncLog(user.login, 'pull');
 
   try {
-    // Determine accessible SD codes based on role
-    const sdCodes = assignService.getAccessibleSdCodes(user);
-
-    // Get habitations (optionally filtered by since timestamp)
-    let habitations;
-    if (since) {
-      habitations = habService.getSince(sdCodes, since);
-    } else {
-      habitations = sdCodes.length > 0 ? habService.getBySdCodes(sdCodes) : [];
-    }
+    // Get habitations using the new user-aware function (prevents large variable list crash)
+    const habitations = habService.getByAccessibleUser(user, since);
 
     // Get assignments for accessible SDs
     let assignments;
@@ -27,8 +19,8 @@ function pull(user, since) {
       assignments = assignService.getByOperator(user.login);
     }
 
-    // Get counters for accessible SDs
-    const counters = habService.getCounters(sdCodes);
+    // Get counters using the new user-aware function
+    const counters = habService.getCountersForUser(user);
 
     // Format habitations for client consumption
     const formattedHabs = habitations.map(h => ({
@@ -61,6 +53,7 @@ function pull(user, since) {
       serverTime: new Date().toISOString(),
     };
   } catch (err) {
+    console.error(`[SyncService] Pull error for ${user.login}:`, err);
     completeSyncLog(logId, 0, 'error');
     throw err;
   }
@@ -121,6 +114,7 @@ function push(user, data) {
       serverTime: new Date().toISOString(),
     };
   } catch (err) {
+    console.error(`[SyncService] Push error for ${user.login}:`, err);
     completeSyncLog(logId, results.accepted, 'error');
     throw err;
   }

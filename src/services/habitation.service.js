@@ -4,10 +4,33 @@ function getById(id) {
   return db.prepare('SELECT * FROM habitations WHERE id = ?').get(id);
 }
 
-function getBySdCodes(sdCodes) {
-  if (!sdCodes || sdCodes.length === 0) return [];
-  const placeholders = sdCodes.map(() => '?').join(',');
-  return db.prepare(`SELECT * FROM habitations WHERE sd_code IN (${placeholders})`).all(...sdCodes);
+function getByAccessibleUser(user, since = null) {
+  let query = `
+    SELECT h.* 
+    FROM habitations h
+    JOIN assignments a ON h.sd_code = a.sd_code
+  `;
+  const params = [];
+
+  if (user.role === 'admin') {
+    // Admin sees all assigned SDs
+  } else if (user.role === 'supervisor') {
+    const children = JSON.parse(user.children || '[]');
+    const logins = [user.login, ...children];
+    const placeholders = logins.map(() => '?').join(',');
+    query += ` WHERE a.operator_login IN (${placeholders})`;
+    params.push(...logins);
+  } else {
+    query += ` WHERE a.operator_login = ?`;
+    params.push(user.login);
+  }
+
+  if (since) {
+    query += (params.length > 0 ? ' AND' : ' WHERE') + ' h.updated_at > ?';
+    params.push(since);
+  }
+
+  return db.prepare(query).all(...params);
 }
 
 function getByCreator(login) {
@@ -16,14 +39,6 @@ function getByCreator(login) {
 
 function getAll() {
   return db.prepare('SELECT * FROM habitations').all();
-}
-
-function getSince(sdCodes, since) {
-  if (!sdCodes || sdCodes.length === 0) return [];
-  const placeholders = sdCodes.map(() => '?').join(',');
-  return db.prepare(
-    `SELECT * FROM habitations WHERE sd_code IN (${placeholders}) AND updated_at > ?`
-  ).all(...sdCodes, since);
 }
 
 function upsert(hab) {
@@ -75,13 +90,27 @@ function upsert(hab) {
   return 'conflict';
 }
 
-function getCounters(sdCodes) {
-  if (!sdCodes || sdCodes.length === 0) return { buildingCounters: {}, localCounters: {} };
+function getCountersForUser(user) {
+  let query = `
+    SELECT h.ilot_code, h.building_number, h.local_number 
+    FROM habitations h
+    JOIN assignments a ON h.sd_code = a.sd_code
+  `;
+  const params = [];
 
-  const placeholders = sdCodes.map(() => '?').join(',');
-  const rows = db.prepare(
-    `SELECT ilot_code, building_number, local_number FROM habitations WHERE sd_code IN (${placeholders})`
-  ).all(...sdCodes);
+  if (user.role === 'admin') {
+  } else if (user.role === 'supervisor') {
+    const children = JSON.parse(user.children || '[]');
+    const logins = [user.login, ...children];
+    const placeholders = logins.map(() => '?').join(',');
+    query += ` WHERE a.operator_login IN (${placeholders})`;
+    params.push(...logins);
+  } else {
+    query += ` WHERE a.operator_login = ?`;
+    params.push(user.login);
+  }
+
+  const rows = db.prepare(query).all(...params);
 
   const buildingCounters = {};
   const localCounters = {};
@@ -102,4 +131,4 @@ function getCounters(sdCodes) {
   return { buildingCounters, localCounters };
 }
 
-module.exports = { getById, getBySdCodes, getByCreator, getAll, getSince, upsert, getCounters };
+module.exports = { getById, getByAccessibleUser, getByCreator, getAll, upsert, getCountersForUser };
