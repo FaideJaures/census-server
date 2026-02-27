@@ -33,11 +33,15 @@ function getAccessibleSdCodes(user) {
 
 function assign(sdCode, operatorLogin, assignedBy) {
   const now = new Date().toISOString();
+  // Ensure assignedBy is a login, not a display name.
+  // We trim and uppercase it just in case.
+  const finalAssigner = (assignedBy || '8A').trim().toUpperCase();
+
   db.prepare(`
     INSERT OR REPLACE INTO assignments (sd_code, operator_login, assigned_by, assigned_at)
     VALUES (?, ?, ?, ?)
-  `).run(sdCode, operatorLogin, assignedBy, now);
-  return { sdCode, operatorLogin, assignedBy, assignedAt: now };
+  `).run(sdCode, operatorLogin.trim().toUpperCase(), finalAssigner, now);
+  return { sdCode, operatorLogin, assignedBy: finalAssigner, assignedAt: now };
 }
 
 function assignBatch(assignments, assignedBy) {
