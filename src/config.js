@@ -1,4 +1,7 @@
-require('dotenv').config();
+const path = require('path');
+
+// Always load .env from project root
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 module.exports = {
   port: parseInt(process.env.PORT || '3000', 10),
