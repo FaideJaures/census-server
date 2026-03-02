@@ -4,7 +4,7 @@ function getById(id) {
   return db.prepare('SELECT * FROM habitations WHERE id = ?').get(id);
 }
 
-function getByAccessibleUser(user, since = null) {
+function getByAccessibleUser(user, since = null, page = 1, limit = 500) {
   let query = `
     SELECT h.* 
     FROM habitations h
@@ -30,6 +30,9 @@ function getByAccessibleUser(user, since = null) {
     params.push(since);
   }
 
+  query += ` ORDER BY h.updated_at ASC LIMIT ? OFFSET ?`;
+  params.push(limit, (page - 1) * limit);
+
   return db.prepare(query).all(...params);
 }
 
@@ -41,7 +44,21 @@ function getAll() {
   return db.prepare('SELECT * FROM habitations').all();
 }
 
-function upsert(hab) {
+function upsert(hab, user = null) {
+  if (!hab || !hab.id) return 'rejected';
+
+  const sdCode = hab.sdCode || hab.sd_code;
+  if (!sdCode || typeof sdCode !== 'string' || sdCode.trim() === '') return 'rejected';
+
+  // SD assignment permission check for agents
+  if (user && user.role !== 'admin' && user.role !== 'supervisor') {
+    const assignments = require('./assignment.service').getByOperator(user.login);
+    const assignedSds = assignments.map(a => a.sd_code);
+    if (!assignedSds.includes(sdCode)) {
+      return 'rejected';
+    }
+  }
+
   const existing = getById(hab.id);
   const now = new Date().toISOString();
 

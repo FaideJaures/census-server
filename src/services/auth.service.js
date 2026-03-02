@@ -16,7 +16,7 @@ function login(login, password) {
   const token = jwt.sign(
     { login: user.login, role: user.role },
     config.jwtSecret,
-    { expiresIn: '7d' }
+    { expiresIn: '24h' }
   );
 
   return {

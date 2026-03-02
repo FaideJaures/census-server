@@ -10,7 +10,7 @@ router.use(authMiddleware);
 // Pull: get data from server
 router.get('/:login', (req, res) => {
   const { login } = req.params;
-  const { since } = req.query;
+  const { since, page = 1, limit = 500 } = req.query;
 
   // Users can only pull their own data (admins can pull any)
   if (req.user.role !== 'admin' && req.user.login !== login.toUpperCase()) {
@@ -29,7 +29,9 @@ router.get('/:login', (req, res) => {
   try {
     const result = syncService.pull(
       { ...user, children: user.children },
-      since || null
+      since || null,
+      parseInt(page, 10),
+      parseInt(limit, 10)
     );
     res.json(result);
   } catch (err) {

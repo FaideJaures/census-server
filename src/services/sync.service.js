@@ -2,25 +2,27 @@ const db = require('../db/connection');
 const habService = require('./habitation.service');
 const assignService = require('./assignment.service');
 
-function pull(user, since) {
+function pull(user, since, page = 1, limit = 500) {
   const logId = startSyncLog(user.login, 'pull');
 
   try {
     // Get habitations using the new user-aware function (prevents large variable list crash)
-    const habitations = habService.getByAccessibleUser(user, since);
+    const habitations = habService.getByAccessibleUser(user, since, page, limit);
 
     // Get assignments for accessible SDs
-    let assignments;
-    if (user.role === 'admin') {
-      assignments = assignService.getAll();
-    } else if (user.role === 'supervisor') {
-      assignments = assignService.getByAssigner(user.login);
-    } else {
-      assignments = assignService.getByOperator(user.login);
+    let assignments = [];
+    let counters = {};
+    if (page === 1) {
+      if (user.role === 'admin') {
+        assignments = assignService.getAll();
+      } else if (user.role === 'supervisor') {
+        assignments = assignService.getByAssigner(user.login);
+      } else {
+        assignments = assignService.getByOperator(user.login);
+      }
+      // Get counters using the new user-aware function
+      counters = habService.getCountersForUser(user);
     }
-
-    // Get counters using the new user-aware function
-    const counters = habService.getCountersForUser(user);
 
     // Format habitations for client consumption
     const formattedHabs = habitations.map(h => ({
@@ -64,12 +66,12 @@ function push(user, data) {
   const results = { accepted: 0, rejected: 0, conflicts: 0 };
 
   try {
-    // Process habitations
-    if (data.habitations && Array.isArray(data.habitations)) {
-      db.exec('BEGIN');
-      try {
+    db.exec('BEGIN');
+    try {
+      // Process habitations
+      if (data.habitations && Array.isArray(data.habitations)) {
         for (const hab of data.habitations) {
-          const result = habService.upsert(hab);
+          const result = habService.upsert(hab, user);
           if (result === 'inserted' || result === 'updated') {
             results.accepted++;
             logActivity(user.login, result === 'inserted' ? 'create_habitation' : 'update_habitation', hab.id);
@@ -79,17 +81,10 @@ function push(user, data) {
             results.rejected++;
           }
         }
-        db.exec('COMMIT');
-      } catch (txErr) {
-        db.exec('ROLLBACK');
-        throw txErr;
       }
-    }
 
-    // Process assignments
-    if (data.assignments && Array.isArray(data.assignments)) {
-      db.exec('BEGIN');
-      try {
+      // Process assignments
+      if (data.assignments && Array.isArray(data.assignments)) {
         for (const a of data.assignments) {
           assignService.assign(
             a.sdCode || a.sd_code,
@@ -100,11 +95,11 @@ function push(user, data) {
             operator: a.operatorLogin || a.operator_login,
           });
         }
-        db.exec('COMMIT');
-      } catch (txErr) {
-        db.exec('ROLLBACK');
-        throw txErr;
       }
+      db.exec('COMMIT');
+    } catch (txErr) {
+      db.exec('ROLLBACK');
+      throw txErr;
     }
 
     completeSyncLog(logId, results.accepted, 'success');

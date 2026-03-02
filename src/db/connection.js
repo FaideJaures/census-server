@@ -18,6 +18,7 @@ const db = new DatabaseSync(dbPath);
 // Enable WAL mode and foreign keys
 db.exec('PRAGMA journal_mode = WAL');
 db.exec('PRAGMA foreign_keys = ON');
+db.exec('PRAGMA busy_timeout = 5000');
 
 // Run schema
 const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf-8');
