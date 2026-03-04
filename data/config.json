@@ -1,39 +1,62 @@
 {
-    "masterPassword": "MASTER2024",
-    "admin": {
-        "login": "8A",
-        "password": "Admin2024",
-        "name": "Administrateur National"
+  "masterPassword": "MASTER2024",
+  "admin": {
+    "login": "8A",
+    "password": "Admin2024",
+    "name": "Administrateur National"
+  },
+  "agentsPerChief": 20,
+  "provinces": {
+    "01": "Estuaire",
+    "02": "Haut-Ogooue",
+    "03": "Moyen-Ogooue",
+    "04": "Ngounie",
+    "05": "Nyanga",
+    "06": "Ogooue-Ivindo",
+    "07": "Ogooue-Lolo",
+    "08": "Ogooue-Maritime",
+    "09": "Woleu-Ntem"
+  },
+  "brigades": [
+    {
+      "chief": "8AB",
+      "chiefName": "Superviseur Estuaire (0103)",
+      "province": "01",
+      "subregions": [
+        "0103"
+      ]
     },
-    "agentsPerChief": 20,
-    "provinces": {
-        "01": "Estuaire",
-        "02": "Haut-Ogooue",
-        "03": "Moyen-Ogooue",
-        "04": "Ngounie",
-        "05": "Nyanga",
-        "06": "Ogooue-Ivindo",
-        "07": "Ogooue-Lolo",
-        "08": "Ogooue-Maritime",
-        "09": "Woleu-Ntem"
+    {
+      "chief": "8AC",
+      "chiefName": "Superviseur Estuaire (0102)",
+      "province": "01",
+      "subregions": [
+        "0102"
+      ]
     },
-    "brigades": [
-        {
-            "chief": "8AA",
-            "chiefName": "Superviseur Estuaire 1",
-            "province": "01",
-            "subregions": [
-                "010130"
-            ]
-        },
-        {
-            "chief": "8AB",
-            "chiefName": "Superviseur Estuaire 2",
-            "province": "01",
-            "subregions": [
-                "0101401",
-                "0101501"
-            ]
-        }
-    ]
+    {
+      "chief": "8AD",
+      "chiefName": "Superviseur Province 02 (0206)",
+      "province": "02",
+      "subregions": [
+        "0206"
+      ]
+    },
+    {
+      "chief": "8AE",
+      "chiefName": "Superviseur Province 09 (0905)",
+      "province": "09",
+      "subregions": [
+        "0905"
+      ]
+    },
+    {
+      "chief": "8AF",
+      "chiefName": "Superviseur Province 04 (0401)",
+      "province": "04",
+      "subregions": [
+        "0401"
+      ]
+    }
+  ]
 }
