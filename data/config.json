@@ -1,0 +1,39 @@
+{
+    "masterPassword": "MASTER2024",
+    "admin": {
+        "login": "8A",
+        "password": "Admin2024",
+        "name": "Administrateur National"
+    },
+    "agentsPerChief": 20,
+    "provinces": {
+        "01": "Estuaire",
+        "02": "Haut-Ogooue",
+        "03": "Moyen-Ogooue",
+        "04": "Ngounie",
+        "05": "Nyanga",
+        "06": "Ogooue-Ivindo",
+        "07": "Ogooue-Lolo",
+        "08": "Ogooue-Maritime",
+        "09": "Woleu-Ntem"
+    },
+    "brigades": [
+        {
+            "chief": "8AA",
+            "chiefName": "Superviseur Estuaire 1",
+            "province": "01",
+            "subregions": [
+                "010130"
+            ]
+        },
+        {
+            "chief": "8AB",
+            "chiefName": "Superviseur Estuaire 2",
+            "province": "01",
+            "subregions": [
+                "010140",
+                "010150"
+            ]
+        }
+    ]
+}
