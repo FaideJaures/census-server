@@ -31,8 +31,8 @@ app.use('/api/', rateLimit({
 }));
 
 app.use('/api/auth/login', rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  max: 100, // Increase max to 100 attempts
   message: { error: 'Trop de tentatives de connexion.' },
 }));
 
