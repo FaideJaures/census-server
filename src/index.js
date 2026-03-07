@@ -10,12 +10,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: [
-    'capacitor://localhost',
-    'http://localhost',
-    'http://localhost:3000',
-    'http://localhost:3001',
-  ],
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
