@@ -24,6 +24,9 @@ let count = 0;
 db.exec('BEGIN');
 try {
   for (const [login, u] of Object.entries(users)) {
+    if (u.role === 'agent') {
+      continue; // Agents are kept in users.json but NOT seeded into DB. They are created dynamically by 8A later.
+    }
     upsertUser.run(
       login,
       u.password,
@@ -42,6 +45,10 @@ try {
   db.exec('ROLLBACK');
   throw err;
 }
+// Clean start: clear assignments and sessions
+db.exec('DELETE FROM assignments');
+db.exec('DELETE FROM sessions');
 console.log(`Seeded ${count} users into database.`);
 console.log(`Master password stored in config table.`);
+console.log(`Cleared assignments and sessions tables for clean start.`);
 process.exit(0);

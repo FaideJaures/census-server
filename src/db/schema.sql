@@ -62,5 +62,15 @@ CREATE INDEX IF NOT EXISTS idx_habitations_sd_code ON habitations(sd_code);
 CREATE INDEX IF NOT EXISTS idx_habitations_created_by ON habitations(created_by);
 CREATE INDEX IF NOT EXISTS idx_habitations_updated_at ON habitations(updated_at);
 CREATE INDEX IF NOT EXISTS idx_assignments_operator ON assignments(operator_login);
+CREATE TABLE IF NOT EXISTS sessions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  login TEXT NOT NULL,
+  logged_in_at TEXT NOT NULL DEFAULT (datetime('now')),
+  last_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+  ip_address TEXT,
+  FOREIGN KEY (login) REFERENCES users(login)
+);
+
 CREATE INDEX IF NOT EXISTS idx_activity_login ON activity_log(login);
 CREATE INDEX IF NOT EXISTS idx_sync_log_login ON sync_log(login);
+CREATE INDEX IF NOT EXISTS idx_sessions_login ON sessions(login);

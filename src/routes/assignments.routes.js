@@ -54,4 +54,84 @@ router.post('/', (req, res) => {
   }
 });
 
+// ─── Region assignment (admin only, works for supervisors AND agents) ─────
+
+// GET /api/assignments/regions/:login — get a user's regions
+router.get('/regions/:login', (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Accès réservé à l\'administrateur' });
+  }
+  try {
+    const regions = assignService.getRegions(req.params.login.toUpperCase());
+    res.json({ login: req.params.login.toUpperCase(), regions });
+  } catch (err) {
+    console.error('Get regions error:', err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// POST /api/assignments/regions — add regions to a user (merge)
+router.post('/regions', (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Accès réservé à l\'administrateur' });
+  }
+
+  const targetLogin = (req.body.userLogin || req.body.supervisorLogin || '').toUpperCase();
+  const { regions } = req.body;
+  if (!targetLogin || !regions || !Array.isArray(regions)) {
+    return res.status(400).json({ error: 'userLogin et regions[] requis' });
+  }
+
+  try {
+    const result = assignService.assignRegions(targetLogin, regions, req.user.login);
+    res.json({ login: targetLogin, regions: result.regions, createdAgents: result.createdAgents });
+  } catch (err) {
+    console.error('Assign regions error:', err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// PUT /api/assignments/regions — replace all regions for a user
+router.put('/regions', (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Accès réservé à l\'administrateur' });
+  }
+
+  const targetLogin = (req.body.userLogin || req.body.supervisorLogin || '').toUpperCase();
+  const { regions } = req.body;
+  if (!targetLogin || !Array.isArray(regions)) {
+    return res.status(400).json({ error: 'userLogin et regions[] requis' });
+  }
+
+  try {
+    const result = assignService.setRegions(targetLogin, regions, req.user.login);
+    res.json({ login: targetLogin, regions: result.regions, createdAgents: result.createdAgents });
+  } catch (err) {
+    console.error('Set regions error:', err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// DELETE /api/assignments/regions — remove regions from a user
+router.delete('/regions', (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Accès réservé à l\'administrateur' });
+  }
+
+  const targetLogin = (req.body.userLogin || req.body.supervisorLogin || '').toUpperCase();
+  const { regions } = req.body;
+  if (!targetLogin || !regions || !Array.isArray(regions)) {
+    return res.status(400).json({ error: 'userLogin et regions[] requis' });
+  }
+
+  try {
+    const result = assignService.removeRegions(targetLogin, regions, req.user.login);
+    res.json({ login: targetLogin, regions: result });
+  } catch (err) {
+    console.error('Remove regions error:', err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
 module.exports = router;
+

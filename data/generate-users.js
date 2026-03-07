@@ -124,39 +124,40 @@ if (config.admin) {
     };
 }
 
-// Process each brigade
-const agentsPerChief = config.agentsPerChief || 20;
+// Process each brigade (A to Z)
+const agentsPerChief = 26; // A-Z
+const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
-for (const brigade of config.brigades) {
-    const provinceName = config.provinces?.[brigade.province] || '';
-    const regions = getRegionsForBrigade(brigade, allSdCodes);
+for (let b = 0; b < 26; b++) {
+    const chiefLogin = `8A${letters[b]}`;
 
     // Create agent logins
     const childrenLogins = [];
     for (let i = 0; i < agentsPerChief; i++) {
-        const login = agentLogin(brigade.chief, i);
+        const login = agentLogin(chiefLogin, i);
         childrenLogins.push(login);
 
         users[login] = {
             password: randomPassword(),
             role: 'agent',
             name: `Agent ${login}`,
-            parent: brigade.chief,
-            province: brigade.province,
-            provinceName: provinceName,
+            parent: chiefLogin,
+            province: '',
+            provinceName: '',
             regions: [],
         };
     }
 
-    // Create chief (supervisor)
-    users[brigade.chief] = {
+    // Create chief (supervisor) — starts with empty regions and empty children; 8A assigns at runtime
+    // Agents will be auto-created by the server upon first region assignment
+    users[chiefLogin] = {
         password: randomPassword(),
         role: 'supervisor',
-        name: brigade.chiefName || `Superviseur ${brigade.chief}`,
-        children: childrenLogins,
-        province: brigade.province,
-        provinceName: provinceName,
-        regions: regions,
+        name: `Superviseur ${chiefLogin}`,
+        children: [],
+        province: '',
+        provinceName: '',
+        regions: [],
     };
 }
 
@@ -167,11 +168,10 @@ const output = {
 
 fs.writeFileSync(outputPath, JSON.stringify(output, null, 2), 'utf-8');
 
-const chiefCount = config.brigades.length;
+const chiefCount = 26;
 const totalUsers = Object.keys(users).length;
 console.log(`\nGenerated users.json:`);
 console.log(`  - ${config.admin ? 1 : 0} admin`);
 console.log(`  - ${chiefCount} supervisors`);
-console.log(`  - ${totalUsers - chiefCount - (config.admin ? 1 : 0)} agents (${agentsPerChief} per chief)`);
-console.log(`  - ${totalUsers} total users`);
+console.log(`  - ${totalUsers} total users (Agents will be created dynamically when assigned regions)`);
 console.log(`\nOutput: ${outputPath}`);

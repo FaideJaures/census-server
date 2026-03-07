@@ -16,7 +16,7 @@ app.use(cors({
     'http://localhost:3000',
     'http://localhost:3001',
   ],
-  methods: ['GET', 'POST'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 app.use(morgan('short'));
@@ -48,6 +48,7 @@ app.use('/api/auth', require('./routes/auth.routes'));
 app.use('/api/sync', require('./routes/sync.routes'));
 app.use('/api/assignments', require('./routes/assignments.routes'));
 app.use('/api/update', require('./routes/update.routes'));
+app.use('/api/admin', require('./routes/admin.routes'));
 
 // Error handler
 app.use((err, req, res, next) => {

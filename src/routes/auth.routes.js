@@ -10,7 +10,7 @@ router.post('/login', (req, res) => {
     return res.status(400).json({ error: 'Login et mot de passe requis' });
   }
 
-  const result = authService.login(login.toUpperCase(), password);
+  const result = authService.login(login.toUpperCase(), password, req.ip);
   if (!result) {
     return res.status(401).json({ error: 'Identifiant ou mot de passe incorrect' });
   }
@@ -19,3 +19,4 @@ router.post('/login', (req, res) => {
 });
 
 module.exports = router;
+

@@ -60,4 +60,77 @@ function assignBatch(assignments, assignedBy) {
   return results;
 }
 
-module.exports = { getAll, getByOperator, getByAssigner, getAccessibleSdCodes, assign, assignBatch };
+// ─── Region assignment (admin → supervisor) ─────────────────────────
+
+function getRegions(login) {
+  const user = db.prepare('SELECT regions FROM users WHERE login = ?').get(login);
+  if (!user) return [];
+  try { return JSON.parse(user.regions || '[]'); } catch { return []; }
+}
+
+function assignRegions(targetLogin, regionCodes, assignedBy) {
+  const userService = require('./user.service');
+  const existing = getRegions(targetLogin);
+  const merged = [...new Set([...existing, ...regionCodes])].sort();
+  db.prepare('UPDATE users SET regions = ? WHERE login = ?').run(JSON.stringify(merged), targetLogin);
+
+  // Log the activity
+  const logStmt = db.prepare(
+    'INSERT INTO activity_log (login, action, target_id, details) VALUES (?, ?, ?, ?)'
+  );
+  logStmt.run(assignedBy || '8A', 'assign_regions', targetLogin, JSON.stringify({ added: regionCodes, result: merged }));
+
+  // Auto-create agents if target is a supervisor with no children
+  let createdAgents = [];
+  const user = db.prepare('SELECT role, children FROM users WHERE login = ?').get(targetLogin);
+  if (user && user.role === 'supervisor') {
+    const children = JSON.parse(user.children || '[]');
+    if (children.length === 0) {
+      createdAgents = userService.createAgentsForSupervisor(targetLogin);
+    }
+  }
+
+  return { regions: merged, createdAgents };
+}
+
+function removeRegions(targetLogin, regionCodes, removedBy) {
+  const existing = getRegions(targetLogin);
+  const filtered = existing.filter(r => !regionCodes.includes(r));
+  db.prepare('UPDATE users SET regions = ? WHERE login = ?').run(JSON.stringify(filtered), targetLogin);
+
+  const logStmt = db.prepare(
+    'INSERT INTO activity_log (login, action, target_id, details) VALUES (?, ?, ?, ?)'
+  );
+  logStmt.run(removedBy || '8A', 'remove_regions', targetLogin, JSON.stringify({ removed: regionCodes, result: filtered }));
+
+  return filtered;
+}
+
+function setRegions(targetLogin, regionCodes, assignedBy) {
+  const userService = require('./user.service');
+  const sorted = [...new Set(regionCodes)].sort();
+  db.prepare('UPDATE users SET regions = ? WHERE login = ?').run(JSON.stringify(sorted), targetLogin);
+
+  const logStmt = db.prepare(
+    'INSERT INTO activity_log (login, action, target_id, details) VALUES (?, ?, ?, ?)'
+  );
+  logStmt.run(assignedBy || '8A', 'set_regions', targetLogin, JSON.stringify({ regions: sorted }));
+
+  // Auto-create agents if target is a supervisor with no children
+  let createdAgents = [];
+  if (sorted.length > 0) {
+    const user = db.prepare('SELECT role, children FROM users WHERE login = ?').get(targetLogin);
+    if (user && user.role === 'supervisor') {
+      const children = JSON.parse(user.children || '[]');
+      if (children.length === 0) {
+        createdAgents = userService.createAgentsForSupervisor(targetLogin);
+      }
+    }
+  }
+
+  return { regions: sorted, createdAgents };
+}
+
+module.exports = { getAll, getByOperator, getByAssigner, getAccessibleSdCodes, assign, assignBatch, getRegions, assignRegions, removeRegions, setRegions };
+
+
