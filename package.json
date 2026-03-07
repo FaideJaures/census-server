@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/index.js",
     "seed": "node src/db/seed.js",
-    "generate-users": "node data/generate-users.js"
+    "generate-users": "node data/generate-users.js",
+    "build": "echo \"No build step required for this Node.js app\""
   },
   "dependencies": {
     "cors": "^2.8.5",
