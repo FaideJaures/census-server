@@ -10,6 +10,16 @@ const usersPath = path.join(__dirname, '../../data/users.json');
 const raw = fs.readFileSync(usersPath, 'utf-8');
 const { masterPassword, users } = JSON.parse(raw);
 
+// Full DB reset before seeding
+db.exec('DELETE FROM activity_log');
+db.exec('DELETE FROM sync_log');
+db.exec('DELETE FROM sessions');
+db.exec('DELETE FROM assignments');
+db.exec('DELETE FROM habitations');
+db.exec('DELETE FROM users');
+db.exec('DELETE FROM config');
+console.log('Database reset complete.');
+
 // Store master password in config table
 const upsertConfig = db.prepare('INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)');
 upsertConfig.run('master_password', masterPassword);

@@ -77,13 +77,13 @@ router.post('/regions', (req, res) => {
   }
 
   const targetLogin = (req.body.userLogin || req.body.supervisorLogin || '').toUpperCase();
-  const { regions } = req.body;
+  const { regions, userName } = req.body;
   if (!targetLogin || !regions || !Array.isArray(regions)) {
     return res.status(400).json({ error: 'userLogin et regions[] requis' });
   }
 
   try {
-    const result = assignService.assignRegions(targetLogin, regions, req.user.login);
+    const result = assignService.assignRegions(targetLogin, regions, req.user.login, userName);
     res.json({ login: targetLogin, regions: result.regions, createdAgents: result.createdAgents });
   } catch (err) {
     console.error('Assign regions error:', err);
@@ -98,13 +98,13 @@ router.put('/regions', (req, res) => {
   }
 
   const targetLogin = (req.body.userLogin || req.body.supervisorLogin || '').toUpperCase();
-  const { regions } = req.body;
+  const { regions, userName } = req.body;
   if (!targetLogin || !Array.isArray(regions)) {
     return res.status(400).json({ error: 'userLogin et regions[] requis' });
   }
 
   try {
-    const result = assignService.setRegions(targetLogin, regions, req.user.login);
+    const result = assignService.setRegions(targetLogin, regions, req.user.login, userName);
     res.json({ login: targetLogin, regions: result.regions, createdAgents: result.createdAgents });
   } catch (err) {
     console.error('Set regions error:', err);
@@ -119,12 +119,18 @@ router.delete('/regions', (req, res) => {
   }
 
   const targetLogin = (req.body.userLogin || req.body.supervisorLogin || '').toUpperCase();
-  const { regions } = req.body;
+  const { regions, userName } = req.body;
   if (!targetLogin || !regions || !Array.isArray(regions)) {
     return res.status(400).json({ error: 'userLogin et regions[] requis' });
   }
 
   try {
+    if (userName) {
+      db.prepare('UPDATE users SET name = ? WHERE login = ?').run(userName, targetLogin);
+      db.prepare('INSERT INTO activity_log (login, action, target_id, details) VALUES (?, ?, ?, ?)').run(
+        req.user.login, 'rename_user', targetLogin, JSON.stringify({ newName: userName })
+      );
+    }
     const result = assignService.removeRegions(targetLogin, regions, req.user.login);
     res.json({ login: targetLogin, regions: result });
   } catch (err) {

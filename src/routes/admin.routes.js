@@ -54,6 +54,11 @@ router.get('/state', (req, res) => {
       ORDER BY sd_count DESC
     `).all();
 
+        // Activity log (last 100 entries)
+        const activityLog = db.prepare(
+            'SELECT * FROM activity_log ORDER BY created_at DESC LIMIT 100'
+        ).all();
+
         // Total counts
         const habCount = db.prepare('SELECT COUNT(*) as count FROM habitations').get();
         const assignCount = db.prepare('SELECT COUNT(*) as count FROM assignments').get();
@@ -64,6 +69,7 @@ router.get('/state', (req, res) => {
             syncActivity,
             users,
             assignmentSummary,
+            activityLog,
             totals: {
                 users: users.length,
                 habitations: habCount.count,
@@ -72,6 +78,30 @@ router.get('/state', (req, res) => {
         });
     } catch (err) {
         console.error('Admin state error:', err);
+        res.status(500).json({ error: 'Erreur serveur' });
+    }
+});
+
+// PUT /api/admin/users/:login/name — rename a user
+router.put('/users/:login/name', (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Accès réservé à l\'administrateur' });
+    }
+
+    const login = req.params.login.toUpperCase();
+    const { name } = req.body;
+    if (!name) {
+        return res.status(400).json({ error: 'name requis' });
+    }
+
+    try {
+        db.prepare('UPDATE users SET name = ? WHERE login = ?').run(name, login);
+        db.prepare('INSERT INTO activity_log (login, action, target_id, details) VALUES (?, ?, ?, ?)').run(
+            req.user.login, 'rename_user', login, JSON.stringify({ newName: name })
+        );
+        res.json({ login, name });
+    } catch (err) {
+        console.error('Rename user error:', err);
         res.status(500).json({ error: 'Erreur serveur' });
     }
 });

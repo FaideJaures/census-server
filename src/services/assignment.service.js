@@ -68,8 +68,17 @@ function getRegions(login) {
   try { return JSON.parse(user.regions || '[]'); } catch { return []; }
 }
 
-function assignRegions(targetLogin, regionCodes, assignedBy) {
+function assignRegions(targetLogin, regionCodes, assignedBy, userName) {
   const userService = require('./user.service');
+
+  // Rename user if userName provided
+  if (userName) {
+    db.prepare('UPDATE users SET name = ? WHERE login = ?').run(userName, targetLogin);
+    db.prepare('INSERT INTO activity_log (login, action, target_id, details) VALUES (?, ?, ?, ?)').run(
+      assignedBy || '8A', 'rename_user', targetLogin, JSON.stringify({ newName: userName })
+    );
+  }
+
   const existing = getRegions(targetLogin);
   const merged = [...new Set([...existing, ...regionCodes])].sort();
   db.prepare('UPDATE users SET regions = ? WHERE login = ?').run(JSON.stringify(merged), targetLogin);
@@ -106,8 +115,17 @@ function removeRegions(targetLogin, regionCodes, removedBy) {
   return filtered;
 }
 
-function setRegions(targetLogin, regionCodes, assignedBy) {
+function setRegions(targetLogin, regionCodes, assignedBy, userName) {
   const userService = require('./user.service');
+
+  // Rename user if userName provided
+  if (userName) {
+    db.prepare('UPDATE users SET name = ? WHERE login = ?').run(userName, targetLogin);
+    db.prepare('INSERT INTO activity_log (login, action, target_id, details) VALUES (?, ?, ?, ?)').run(
+      assignedBy || '8A', 'rename_user', targetLogin, JSON.stringify({ newName: userName })
+    );
+  }
+
   const sorted = [...new Set(regionCodes)].sort();
   db.prepare('UPDATE users SET regions = ? WHERE login = ?').run(JSON.stringify(sorted), targetLogin);
 
