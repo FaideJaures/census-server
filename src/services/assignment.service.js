@@ -32,6 +32,9 @@ function getAccessibleSdCodes(user) {
 }
 
 function assign(sdCode, operatorLogin, assignedBy) {
+  const userService = require('./user.service');
+  userService.ensureUserFromLocalData((operatorLogin || '').trim().toUpperCase());
+
   const now = new Date().toISOString();
   // Ensure assignedBy is a login, not a display name.
   // We trim and uppercase it just in case.
@@ -71,6 +74,9 @@ function getRegions(login) {
 function assignRegions(targetLogin, regionCodes, assignedBy, userName) {
   const userService = require('./user.service');
 
+  // Ensure user exists first (creates from users.json if needed)
+  userService.ensureUserFromLocalData(targetLogin);
+
   // Rename user if userName provided
   if (userName) {
     db.prepare('UPDATE users SET name = ? WHERE login = ?').run(userName, targetLogin);
@@ -89,17 +95,7 @@ function assignRegions(targetLogin, regionCodes, assignedBy, userName) {
   );
   logStmt.run(assignedBy || '8A', 'assign_regions', targetLogin, JSON.stringify({ added: regionCodes, result: merged }));
 
-  // Auto-create agents if target is a supervisor with no children
-  let createdAgents = [];
-  const user = db.prepare('SELECT role, children FROM users WHERE login = ?').get(targetLogin);
-  if (user && user.role === 'supervisor') {
-    const children = JSON.parse(user.children || '[]');
-    if (children.length === 0) {
-      createdAgents = userService.createAgentsForSupervisor(targetLogin);
-    }
-  }
-
-  return { regions: merged, createdAgents };
+  return { regions: merged };
 }
 
 function removeRegions(targetLogin, regionCodes, removedBy) {
@@ -118,6 +114,9 @@ function removeRegions(targetLogin, regionCodes, removedBy) {
 function setRegions(targetLogin, regionCodes, assignedBy, userName) {
   const userService = require('./user.service');
 
+  // Ensure user exists first (creates from users.json if needed)
+  userService.ensureUserFromLocalData(targetLogin);
+
   // Rename user if userName provided
   if (userName) {
     db.prepare('UPDATE users SET name = ? WHERE login = ?').run(userName, targetLogin);
@@ -134,19 +133,7 @@ function setRegions(targetLogin, regionCodes, assignedBy, userName) {
   );
   logStmt.run(assignedBy || '8A', 'set_regions', targetLogin, JSON.stringify({ regions: sorted }));
 
-  // Auto-create agents if target is a supervisor with no children
-  let createdAgents = [];
-  if (sorted.length > 0) {
-    const user = db.prepare('SELECT role, children FROM users WHERE login = ?').get(targetLogin);
-    if (user && user.role === 'supervisor') {
-      const children = JSON.parse(user.children || '[]');
-      if (children.length === 0) {
-        createdAgents = userService.createAgentsForSupervisor(targetLogin);
-      }
-    }
-  }
-
-  return { regions: sorted, createdAgents };
+  return { regions: sorted };
 }
 
 module.exports = { getAll, getByOperator, getByAssigner, getAccessibleSdCodes, assign, assignBatch, getRegions, assignRegions, removeRegions, setRegions };

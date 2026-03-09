@@ -11,6 +11,15 @@ function authMiddleware(req, res, next) {
   const token = header.slice(7);
   try {
     const payload = jwt.verify(token, config.jwtSecret);
+
+    const userExists = db.prepare('SELECT login FROM users WHERE login = ?').get(payload.login);
+    if (!userExists) {
+      return res.status(401).json({
+        error: 'Utilisateur inconnu. La base de données a été réinitialisée. Contactez votre N+1.',
+        code: 'USER_NOT_FOUND',
+      });
+    }
+
     req.user = payload;
 
     // Update last_seen_at for this user's most recent session

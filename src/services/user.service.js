@@ -128,4 +128,41 @@ function getAllUsers() {
         }));
 }
 
-module.exports = { createAgentsForSupervisor, getAgentsBySupervisor, getAllUsers, randomPassword, agentLogin };
+/**
+ * Ensure a user exists in the database by fetching from data/users.json if missing.
+ */
+function ensureUserFromLocalData(login) {
+    const existing = db.prepare('SELECT login FROM users WHERE login = ?').get(login);
+    if (existing) return true; // Already exists
+
+    const fs = require('fs');
+    const path = require('path');
+    try {
+        const usersJsonRaw = fs.readFileSync(path.join(__dirname, '../../data/users.json'), 'utf-8');
+        const usersData = JSON.parse(usersJsonRaw).users || {};
+        const userData = usersData[login];
+
+        if (userData) {
+            db.prepare(`
+                INSERT INTO users (login, password, role, name, parent, province, province_name, regions, children)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(
+                login,
+                userData.password || randomPassword(),
+                userData.role || 'agent',
+                userData.name || login,
+                userData.parent || null,
+                userData.province || '',
+                userData.provinceName || '',
+                JSON.stringify(userData.regions || []),
+                JSON.stringify(userData.children || [])
+            );
+            return true;
+        }
+    } catch (e) {
+        console.error('Error ensuring user from local data:', e);
+    }
+    return false;
+}
+
+module.exports = { createAgentsForSupervisor, getAgentsBySupervisor, getAllUsers, randomPassword, agentLogin, ensureUserFromLocalData };

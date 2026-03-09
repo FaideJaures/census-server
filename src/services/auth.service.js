@@ -33,8 +33,11 @@ function login(login, password, ip) {
     console.error('Failed to record session:', err);
   }
 
+  const dbVersionRow = db.prepare("SELECT value FROM config WHERE key = 'db_version'").get();
+
   return {
     token,
+    dbVersion: dbVersionRow?.value || null,
     user: {
       login: user.login,
       name: user.name,

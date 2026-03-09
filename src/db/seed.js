@@ -24,6 +24,10 @@ console.log('Database reset complete.');
 const upsertConfig = db.prepare('INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)');
 upsertConfig.run('master_password', masterPassword);
 
+const dbVersion = Date.now().toString();
+upsertConfig.run('db_version', dbVersion);
+console.log(`DB version set to: ${dbVersion}`);
+
 // Seed users
 const upsertUser = db.prepare(`
   INSERT OR REPLACE INTO users (login, password, role, name, parent, province, province_name, regions, children)

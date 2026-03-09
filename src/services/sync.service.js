@@ -83,17 +83,25 @@ function push(user, data) {
         }
       }
 
-      // Process assignments
+      // Process assignments (per-record error handling)
+      const assignmentResults = [];
       if (data.assignments && Array.isArray(data.assignments)) {
         for (const a of data.assignments) {
-          assignService.assign(
-            a.sdCode || a.sd_code,
-            a.operatorLogin || a.operator_login,
-            a.assignedBy || a.assigned_by || user.login
-          );
-          logActivity(user.login, 'assign_sd', a.sdCode || a.sd_code, {
-            operator: a.operatorLogin || a.operator_login,
-          });
+          const sdCode = a.sdCode || a.sd_code;
+          try {
+            assignService.assign(
+              sdCode,
+              a.operatorLogin || a.operator_login,
+              a.assignedBy || a.assigned_by || user.login
+            );
+            logActivity(user.login, 'assign_sd', sdCode, {
+              operator: a.operatorLogin || a.operator_login,
+            });
+            assignmentResults.push({ sdCode, status: 'success' });
+          } catch (err) {
+            console.warn(`Assignment error for ${sdCode}: ${err.message}`);
+            assignmentResults.push({ sdCode, status: 'error', error: err.message });
+          }
         }
       }
       db.exec('COMMIT');
@@ -106,6 +114,7 @@ function push(user, data) {
 
     return {
       ...results,
+      assignmentResults,
       serverTime: new Date().toISOString(),
     };
   } catch (err) {
