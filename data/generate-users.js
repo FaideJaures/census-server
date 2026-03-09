@@ -23,7 +23,7 @@ for (let i = 0; i < args.length; i++) {
 }
 
 // Default geojson dir: look in census-server/data/geojson
-if (!geojsonDir) {
+if (!geojsonDir)  {
     geojsonDir = path.join(__dirname, 'geojson');
     if (!fs.existsSync(geojsonDir)) {
         geojsonDir = null;

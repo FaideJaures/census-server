@@ -6,7 +6,7 @@
     "name": "Administrateur National"
   },
   "agentsPerChief": 20,
-  "provinces": {
+  "provinces":  {
     "01": "Estuaire",
     "02": "Haut-Ogooue",
     "03": "Moyen-Ogooue",

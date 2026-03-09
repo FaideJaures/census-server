@@ -4,7 +4,7 @@ const path = require('path');
 const geojsonDir = path.join(__dirname, 'geojson');
 const level4Dir = path.join(geojsonDir, '4');
 
-if (!fs.existsSync(level4Dir)) {
+if  (!fs.existsSync(level4Dir)) {
     console.error("GeoJSON level 4 not found. Please ensure census-server/data/geojson/4 exists.");
     process.exit(1);
 }
