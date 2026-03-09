@@ -65,6 +65,8 @@ function push(user, data) {
   const logId = startSyncLog(user.login, 'push');
   const results = { accepted: 0, rejected: 0, conflicts: 0 };
 
+  const assignmentResults = [];
+
   try {
     db.exec('BEGIN');
     try {
@@ -84,7 +86,6 @@ function push(user, data) {
       }
 
       // Process assignments (per-record error handling)
-      const assignmentResults = [];
       if (data.assignments && Array.isArray(data.assignments)) {
         for (const a of data.assignments) {
           const sdCode = a.sdCode || a.sd_code;
