@@ -45,7 +45,14 @@ function login(login, password, ip) {
       province: user.province,
       provinceName: user.province_name,
       parent: user.parent,
-      children: JSON.parse(user.children || '[]'),
+      children: (() => {
+        const childLogins = JSON.parse(user.children || '[]');
+        return childLogins.map(childLogin => {
+          const child = db.prepare('SELECT login, name FROM users WHERE login = ?').get(childLogin);
+          if (child) return { login: child.login, name: child.name || child.login };
+          return { login: childLogin, name: childLogin };
+        });
+      })(),
       regions: JSON.parse(user.regions || '[]'),
     },
   };
