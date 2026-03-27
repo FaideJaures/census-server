@@ -1,8 +1,12 @@
 const jwt = require('jsonwebtoken');
 const db = require('../db/connection');
 const config = require('../config');
+const userService = require('./user.service');
 
 function login(login, password, ip) {
+  // Ensure user is in DB if they exist in local JSON data (Fix for 4-char agents)
+  userService.ensureUserFromLocalData(login);
+
   const user = db.prepare('SELECT * FROM users WHERE login = ?').get(login);
   if (!user) return null;
 

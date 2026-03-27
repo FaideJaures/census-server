@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node src/index.js",
     "seed": "node src/db/seed.js",
+    "reset-data": "node src/db/reset-data.js",
     "generate-users": "node data/generate-users.js",
     "build": "echo \"No build step required for this Node.js app\""
   },
