@@ -28,6 +28,16 @@ function login(login, password, ip) {
     { expiresIn: '24h' }
   );
 
+  const crypto = require('crypto');
+  const refreshToken = crypto.randomBytes(40).toString('hex');
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 days
+
+  try {
+    db.prepare('INSERT INTO refresh_tokens (login, token, expires_at) VALUES (?, ?, ?)').run(user.login, refreshToken, expiresAt);
+  } catch (err) {
+    console.error('Failed to save refresh token:', err);
+  }
+
   // Record login session
   try {
     db.prepare(
@@ -41,6 +51,7 @@ function login(login, password, ip) {
 
   return {
     token,
+    refreshToken,
     dbVersion: dbVersionRow?.value || null,
     user: {
       login: user.login,
@@ -62,5 +73,33 @@ function login(login, password, ip) {
   };
 }
 
-module.exports = { login };
+function refresh(refreshToken, ip) {
+  const row = db.prepare('SELECT * FROM refresh_tokens WHERE token = ? AND revoked = 0').get(refreshToken);
+  if (!row) return null;
+
+  if (new Date(row.expires_at) < new Date()) {
+    db.prepare('UPDATE refresh_tokens SET revoked = 1 WHERE token = ?').run(refreshToken);
+    return null;
+  }
+
+  const user = db.prepare('SELECT * FROM users WHERE login = ?').get(row.login);
+  if (!user) return null;
+
+  const token = jwt.sign(
+    { login: user.login, role: user.role },
+    config.jwtSecret,
+    { expiresIn: '24h' }
+  );
+
+  // Update last_seen_at for session? No session id, just record activity
+  try {
+    db.prepare('INSERT INTO sessions (login, ip_address) VALUES (?, ?)').run(user.login, ip || null);
+  } catch (e) {
+    console.error('Failed to record session on refresh:', e);
+  }
+
+  return { token };
+}
+
+module.exports = { login, refresh };
 

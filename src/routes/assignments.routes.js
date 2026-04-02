@@ -54,6 +54,42 @@ router.post('/', (req, res) => {
   }
 });
 
+// POST /api/assignments/sd — assign SD codes to agents (supervisor+)
+router.post('/sd', (req, res) => {
+  const { operatorLogin, sdCodes } = req.body;
+  if (!operatorLogin || !Array.isArray(sdCodes)) {
+    return res.status(400).json({ error: 'operatorLogin et sdCodes[] requis' });
+  }
+
+  if (req.user.role === 'agent') {
+    return res.status(403).json({ error: 'Non autorisé' });
+  }
+
+  if (req.user.role === 'supervisor') {
+    // Check if operatorLogin is a child
+    const targetUser = db.prepare('SELECT parent FROM users WHERE login = ?').get(operatorLogin);
+    if (!targetUser || targetUser.parent !== req.user.login) {
+      return res.status(403).json({ error: 'Vous ne pouvez assigner des SD qu\'à vos propres agents' });
+    }
+
+    // Check if sdCodes are within supervisor's scope
+    const supUser = db.prepare('SELECT regions FROM users WHERE login = ?').get(req.user.login);
+    const supRegions = JSON.parse(supUser?.regions || '[]');
+    const isWithinScope = supRegions.length === 0 || sdCodes.every(sd => supRegions.some(r => sd.startsWith(r)));
+    if (!isWithinScope) {
+      return res.status(403).json({ error: 'Certaines zones sont en dehors de votre périmètre' });
+    }
+  }
+
+  try {
+    const result = assignService.assignRegions(operatorLogin, sdCodes, req.user.login);
+    res.json({ assigned: result.regions.length, regions: result.regions });
+  } catch (err) {
+    console.error('Assign SD error:', err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
 // ─── Region assignment (admin only, works for supervisors AND agents) ─────
 
 // GET /api/assignments/regions/:login — get a user's regions

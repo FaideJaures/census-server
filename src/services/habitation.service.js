@@ -64,8 +64,8 @@ function upsert(hab, user = null) {
 
   if (!existing) {
     db.prepare(`
-      INSERT INTO habitations (id, ilot_code, sd_code, building_number, local_number, form_data, coordinates, status, created_by, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO habitations (id, ilot_code, sd_code, building_number, local_number, form_data, coordinates, status, created_by, updated_by, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       hab.id,
       hab.ilotCode || hab.ilot_code || null,
@@ -76,6 +76,7 @@ function upsert(hab, user = null) {
       JSON.stringify(hab.coordinates || {}),
       hab.status || 'pending',
       hab.createdBy || hab.created_by || null,
+      hab.updatedBy || user?.login || null,
       hab.timestamp || hab.created_at || now,
       now
     );
@@ -88,7 +89,7 @@ function upsert(hab, user = null) {
     db.prepare(`
       UPDATE habitations SET
         ilot_code = ?, sd_code = ?, building_number = ?, local_number = ?,
-        form_data = ?, coordinates = ?, status = ?, updated_at = ?
+        form_data = ?, coordinates = ?, status = ?, updated_by = ?, updated_at = ?
       WHERE id = ?
     `).run(
       hab.ilotCode || hab.ilot_code || existing.ilot_code,
@@ -98,6 +99,7 @@ function upsert(hab, user = null) {
       JSON.stringify(hab.formData || hab.form_data || JSON.parse(existing.form_data)),
       JSON.stringify(hab.coordinates || JSON.parse(existing.coordinates)),
       hab.status || existing.status,
+      hab.updatedBy || user?.login || existing.updated_by,
       now,
       hab.id
     );

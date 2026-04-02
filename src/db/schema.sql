@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS habitations (
   coordinates TEXT DEFAULT '{}',
   status TEXT DEFAULT 'pending',
   created_by TEXT,
+  updated_by TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (created_by) REFERENCES users(login)
@@ -74,3 +75,12 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE INDEX IF NOT EXISTS idx_activity_login ON activity_log(login);
 CREATE INDEX IF NOT EXISTS idx_sync_log_login ON sync_log(login);
 CREATE INDEX IF NOT EXISTS idx_sessions_login ON sessions(login);
+
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+  login TEXT NOT NULL,
+  token TEXT NOT NULL PRIMARY KEY,
+  expires_at TEXT NOT NULL,
+  revoked INTEGER DEFAULT 0,
+  FOREIGN KEY (login) REFERENCES users(login)
+);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_login ON refresh_tokens(login);

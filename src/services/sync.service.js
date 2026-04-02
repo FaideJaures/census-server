@@ -35,6 +35,7 @@ function pull(user, since, page = 1, limit = 500) {
       coordinates: JSON.parse(h.coordinates || '{}'),
       status: h.status,
       createdBy: h.created_by,
+      updatedBy: h.updated_by,
       timestamp: h.updated_at,
     }));
 

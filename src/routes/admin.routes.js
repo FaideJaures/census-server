@@ -106,4 +106,151 @@ router.put('/users/:login/name', (req, res) => {
     }
 });
 
+// GET /api/admin/users — list all users with basic stats
+router.get('/users', (req, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+    try {
+        const users = db.prepare(`
+            SELECT u.login, u.name, u.role, u.parent, u.children, u.regions, u.is_disabled,
+                   (SELECT COUNT(*) FROM habitations h WHERE h.created_by = u.login) as habitation_count,
+                   (SELECT MAX(s.last_seen_at) FROM sessions s WHERE s.login = u.login) as last_sync
+            FROM users u
+            ORDER BY u.role, u.login
+        `).all().map(u => ({
+            ...u,
+            regions: JSON.parse(u.regions || '[]'),
+            children: JSON.parse(u.children || '[]'),
+            isDisabled: !!u.is_disabled
+        }));
+        res.json(users);
+    } catch (err) {
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// PUT /api/admin/users/:login/parent — reassign agent to a different supervisor
+router.put('/users/:login/parent', (req, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+    const targetLogin = req.params.login.toUpperCase();
+    const { newParent } = req.body;
+    if (!newParent) return res.status(400).json({ error: 'newParent required' });
+
+    try {
+        db.exec('BEGIN');
+        
+        const agent = db.prepare('SELECT role, parent FROM users WHERE login = ?').get(targetLogin);
+        if (!agent || agent.role !== 'agent') throw new Error('Target is not an agent');
+
+        const supervisor = db.prepare('SELECT role, children FROM users WHERE login = ?').get(newParent.toUpperCase());
+        if (!supervisor || supervisor.role !== 'supervisor') throw new Error('New parent is not a supervisor');
+
+        // Remove from old parent
+        if (agent.parent) {
+            const oldParent = db.prepare('SELECT children FROM users WHERE login = ?').get(agent.parent);
+            if (oldParent) {
+                let children = JSON.parse(oldParent.children || '[]');
+                children = children.filter(c => c !== targetLogin);
+                db.prepare('UPDATE users SET children = ? WHERE login = ?').run(JSON.stringify(children), agent.parent);
+            }
+        }
+
+        // Add to new parent
+        let newChildren = JSON.parse(supervisor.children || '[]');
+        if (!newChildren.includes(targetLogin)) newChildren.push(targetLogin);
+        db.prepare('UPDATE users SET children = ? WHERE login = ?').run(JSON.stringify(newChildren), newParent.toUpperCase());
+
+        // Update agent's parent
+        db.prepare('UPDATE users SET parent = ? WHERE login = ?').run(newParent.toUpperCase(), targetLogin);
+
+        db.prepare('INSERT INTO activity_log (login, action, target_id, details) VALUES (?, ?, ?, ?)').run(
+            req.user.login, 'reassign_agent', targetLogin, JSON.stringify({ oldParent: agent.parent, newParent })
+        );
+        
+        db.exec('COMMIT');
+        res.json({ login: targetLogin, parent: newParent });
+    } catch (err) {
+        db.exec('ROLLBACK');
+        console.error(err);
+        res.status(500).json({ error: err.message || 'Server error' });
+    }
+});
+
+// POST /api/admin/users — create a new user
+router.post('/users', (req, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+    const { login, name, role, parent, province, provinceName } = req.body;
+    if (!login || !name || !role) return res.status(400).json({ error: 'Missing required fields' });
+    
+    const loginUpper = login.toUpperCase();
+    const userService = require('../services/user.service');
+    const password = userService.randomPassword(8);
+
+    try {
+        db.exec('BEGIN');
+        db.prepare(`
+            INSERT INTO users (login, password, role, name, parent, province, province_name, regions, children)
+            VALUES (?, ?, ?, ?, ?, ?, ?, '[]', '[]')
+        `).run(loginUpper, password, role, name, parent ? parent.toUpperCase() : null, province || '', provinceName || '');
+
+        if (role === 'agent' && parent) {
+            const parentUser = db.prepare('SELECT children FROM users WHERE login = ?').get(parent.toUpperCase());
+            if (parentUser) {
+                const children = JSON.parse(parentUser.children || '[]');
+                if (!children.includes(loginUpper)) children.push(loginUpper);
+                db.prepare('UPDATE users SET children = ? WHERE login = ?').run(JSON.stringify(children), parent.toUpperCase());
+            }
+        }
+
+        db.prepare('INSERT INTO activity_log (login, action, target_id, details) VALUES (?, ?, ?, ?)').run(
+            req.user.login, 'create_user', loginUpper, JSON.stringify({ role, parent })
+        );
+        db.exec('COMMIT');
+        res.json({ login: loginUpper, name, role, password }); // Return password once
+    } catch (err) {
+        db.exec('ROLLBACK');
+        if (err.code === 'SQLITE_CONSTRAINT_PRIMARYKEY') {
+            return res.status(409).json({ error: 'Login already exists' });
+        }
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// PUT /api/admin/users/:login/disable — soft disable a user
+router.put('/users/:login/disable', (req, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+    const targetLogin = req.params.login.toUpperCase();
+    const { disabled } = req.body; // true/false
+
+    try {
+        // Need to add is_disabled column if it doesn't exist
+        try {
+            db.exec('ALTER TABLE users ADD COLUMN is_disabled INTEGER DEFAULT 0');
+        } catch(e) { /* column exists */ }
+
+        db.prepare('UPDATE users SET is_disabled = ? WHERE login = ?').run(disabled ? 1 : 0, targetLogin);
+        db.prepare('INSERT INTO activity_log (login, action, target_id, details) VALUES (?, ?, ?, ?)').run(
+            req.user.login, disabled ? 'disable_user' : 'enable_user', targetLogin, JSON.stringify({})
+        );
+        res.json({ login: targetLogin, disabled });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// GET /api/admin/users/:login/habitations — get all habitations by a user
+router.get('/users/:login/habitations', (req, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+    const targetLogin = req.params.login.toUpperCase();
+    try {
+        const habitations = db.prepare('SELECT id, sd_code, form_data, status, created_at FROM habitations WHERE created_by = ? ORDER BY created_at DESC').all(targetLogin);
+        res.json(habitations.map(h => ({
+            ...h,
+            formData: JSON.parse(h.form_data || '{}')
+        })));
+    } catch (err) {
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 module.exports = router;

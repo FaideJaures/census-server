@@ -18,5 +18,19 @@ router.post('/login', (req, res) => {
   res.json(result);
 });
 
+router.post('/refresh', (req, res) => {
+  const { refreshToken } = req.body;
+  if (!refreshToken) {
+    return res.status(400).json({ error: 'refreshToken requis' });
+  }
+
+  const result = authService.refresh(refreshToken, req.ip);
+  if (!result) {
+    return res.status(401).json({ error: 'Refresh token invalide ou expiré' });
+  }
+
+  res.json(result);
+});
+
 module.exports = router;
 

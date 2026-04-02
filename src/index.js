@@ -44,6 +44,7 @@ app.use('/api/sync', require('./routes/sync.routes'));
 app.use('/api/assignments', require('./routes/assignments.routes'));
 app.use('/api/update', require('./routes/update.routes'));
 app.use('/api/admin', require('./routes/admin.routes'));
+app.use('/api/users', require('./routes/users.routes'));
 
 // Error handler
 app.use((err, req, res, next) => {
