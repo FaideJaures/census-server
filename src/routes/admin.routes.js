@@ -110,6 +110,8 @@ router.put('/users/:login/name', (req, res) => {
 router.get('/users', (req, res) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
     try {
+        // Ensure is_disabled column exists (it's lazily created by the disable endpoint)
+        try { db.exec('ALTER TABLE users ADD COLUMN is_disabled INTEGER DEFAULT 0'); } catch(e) { /* column already exists */ }
         const users = db.prepare(`
             SELECT u.login, u.name, u.role, u.parent, u.children, u.regions, u.is_disabled,
                    (SELECT COUNT(*) FROM habitations h WHERE h.created_by = u.login) as habitation_count,
