@@ -16,7 +16,7 @@ function pull(user, since, page = 1, limit = 500) {
       if (user.role === 'admin') {
         assignments = assignService.getAll();
       } else if (user.role === 'supervisor') {
-        assignments = assignService.getByAssigner(user.login);
+        assignments = assignService.getForSupervisor(user.login);
       } else {
         assignments = assignService.getByOperator(user.login);
       }

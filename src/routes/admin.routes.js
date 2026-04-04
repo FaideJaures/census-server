@@ -59,9 +59,11 @@ router.get('/state', (req, res) => {
             'SELECT * FROM activity_log ORDER BY created_at DESC LIMIT 100'
         ).all();
 
+        // All assignments (sd_code → operator mapping)
+        const allAssignments = db.prepare('SELECT sd_code, operator_login, assigned_by FROM assignments').all();
+
         // Total counts
         const habCount = db.prepare('SELECT COUNT(*) as count FROM habitations').get();
-        const assignCount = db.prepare('SELECT COUNT(*) as count FROM assignments').get();
 
         res.json({
             timestamp: new Date().toISOString(),
@@ -69,11 +71,12 @@ router.get('/state', (req, res) => {
             syncActivity,
             users,
             assignmentSummary,
+            allAssignments,
             activityLog,
             totals: {
                 users: users.length,
                 habitations: habCount.count,
-                assignments: assignCount.count,
+                assignments: allAssignments.length,
             },
         });
     } catch (err) {

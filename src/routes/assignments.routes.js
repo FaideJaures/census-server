@@ -15,7 +15,7 @@ router.get('/', (req, res) => {
     if (req.user.role === 'admin') {
       assignments = assignService.getAll();
     } else if (req.user.role === 'supervisor') {
-      assignments = assignService.getByAssigner(req.user.login);
+      assignments = assignService.getForSupervisor(req.user.login);
     } else {
       assignments = assignService.getByOperator(req.user.login);
     }
@@ -71,42 +71,39 @@ router.post('/sd', (req, res) => {
     if (!targetUser || targetUser.parent !== req.user.login) {
       return res.status(403).json({ error: 'Vous ne pouvez assigner des SD qu\'à vos propres agents' });
     }
-
-    // Check if sdCodes are within supervisor's scope
-    const supUser = db.prepare('SELECT regions FROM users WHERE login = ?').get(req.user.login);
-    const supRegions = JSON.parse(supUser?.regions || '[]');
-    const isWithinScope = supRegions.length === 0 || sdCodes.every(sd => supRegions.some(r => sd.startsWith(r)));
-    if (!isWithinScope) {
-      return res.status(403).json({ error: 'Certaines zones sont en dehors de votre périmètre' });
-    }
   }
 
   try {
-    const result = assignService.assignRegions(operatorLogin, sdCodes, req.user.login);
-    res.json({ assigned: result.regions.length, regions: result.regions });
+    const results = assignService.assignBatch(
+      sdCodes.map(sd => ({ sdCode: sd, operatorLogin })),
+      req.user.login
+    );
+    res.json({ assigned: results.length, assignments: results });
   } catch (err) {
     console.error('Assign SD error:', err);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 
-// ─── Region assignment (admin only, works for supervisors AND agents) ─────
+// ─── Region/SD assignment (admin only) — now uses assignments table ─────
 
-// GET /api/assignments/regions/:login — get a user's regions
+// GET /api/assignments/regions/:login — get a user's assigned SD codes
 router.get('/regions/:login', (req, res) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Accès réservé à l\'administrateur' });
   }
   try {
-    const regions = assignService.getRegions(req.params.login.toUpperCase());
-    res.json({ login: req.params.login.toUpperCase(), regions });
+    const login = req.params.login.toUpperCase();
+    const assignments = assignService.getByOperator(login);
+    const regions = assignments.map(a => a.sd_code);
+    res.json({ login, regions });
   } catch (err) {
     console.error('Get regions error:', err);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 
-// POST /api/assignments/regions — add regions to a user (merge)
+// POST /api/assignments/regions — add SD assignments to a user (merge)
 router.post('/regions', (req, res) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Accès réservé à l\'administrateur' });
@@ -119,15 +116,34 @@ router.post('/regions', (req, res) => {
   }
 
   try {
-    const result = assignService.assignRegions(targetLogin, regions, req.user.login, userName);
-    res.json({ login: targetLogin, regions: result.regions, createdAgents: result.createdAgents });
+    if (userName) {
+      const userService = require('../services/user.service');
+      userService.ensureUserFromLocalData(targetLogin);
+      db.prepare('UPDATE users SET name = ? WHERE login = ?').run(userName, targetLogin);
+      db.prepare('INSERT INTO activity_log (login, action, target_id, details) VALUES (?, ?, ?, ?)').run(
+        req.user.login, 'rename_user', targetLogin, JSON.stringify({ newName: userName })
+      );
+    }
+
+    const results = assignService.assignBatch(
+      regions.map(sd => ({ sdCode: sd, operatorLogin: targetLogin })),
+      req.user.login
+    );
+
+    db.prepare('INSERT INTO activity_log (login, action, target_id, details) VALUES (?, ?, ?, ?)').run(
+      req.user.login, 'assign_regions', targetLogin, JSON.stringify({ added: regions })
+    );
+
+    // Return current full list for this user
+    const current = assignService.getByOperator(targetLogin).map(a => a.sd_code);
+    res.json({ login: targetLogin, regions: current });
   } catch (err) {
     console.error('Assign regions error:', err);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 
-// PUT /api/assignments/regions — replace all regions for a user
+// PUT /api/assignments/regions — replace all SD assignments for a user
 router.put('/regions', (req, res) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Accès réservé à l\'administrateur' });
@@ -140,15 +156,39 @@ router.put('/regions', (req, res) => {
   }
 
   try {
-    const result = assignService.setRegions(targetLogin, regions, req.user.login, userName);
-    res.json({ login: targetLogin, regions: result.regions, createdAgents: result.createdAgents });
+    if (userName) {
+      const userService = require('../services/user.service');
+      userService.ensureUserFromLocalData(targetLogin);
+      db.prepare('UPDATE users SET name = ? WHERE login = ?').run(userName, targetLogin);
+      db.prepare('INSERT INTO activity_log (login, action, target_id, details) VALUES (?, ?, ?, ?)').run(
+        req.user.login, 'rename_user', targetLogin, JSON.stringify({ newName: userName })
+      );
+    }
+
+    // Remove all existing assignments for this operator, then add new ones
+    const existing = assignService.getByOperator(targetLogin).map(a => a.sd_code);
+    if (existing.length > 0) {
+      assignService.removeBatch(existing);
+    }
+    if (regions.length > 0) {
+      assignService.assignBatch(
+        regions.map(sd => ({ sdCode: sd, operatorLogin: targetLogin })),
+        req.user.login
+      );
+    }
+
+    db.prepare('INSERT INTO activity_log (login, action, target_id, details) VALUES (?, ?, ?, ?)').run(
+      req.user.login, 'set_regions', targetLogin, JSON.stringify({ regions })
+    );
+
+    res.json({ login: targetLogin, regions });
   } catch (err) {
     console.error('Set regions error:', err);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 
-// DELETE /api/assignments/regions — remove regions from a user
+// DELETE /api/assignments/regions — remove SD assignments from a user
 router.delete('/regions', (req, res) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Accès réservé à l\'administrateur' });
@@ -167,8 +207,16 @@ router.delete('/regions', (req, res) => {
         req.user.login, 'rename_user', targetLogin, JSON.stringify({ newName: userName })
       );
     }
-    const result = assignService.removeRegions(targetLogin, regions, req.user.login);
-    res.json({ login: targetLogin, regions: result });
+
+    assignService.removeBatch(regions);
+
+    db.prepare('INSERT INTO activity_log (login, action, target_id, details) VALUES (?, ?, ?, ?)').run(
+      req.user.login, 'remove_regions', targetLogin, JSON.stringify({ removed: regions })
+    );
+
+    // Return remaining assignments
+    const remaining = assignService.getByOperator(targetLogin).map(a => a.sd_code);
+    res.json({ login: targetLogin, regions: remaining });
   } catch (err) {
     console.error('Remove regions error:', err);
     res.status(500).json({ error: 'Erreur serveur' });

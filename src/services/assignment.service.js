@@ -13,6 +13,33 @@ function getByAssigner(login) {
   return db.prepare('SELECT * FROM assignments WHERE assigned_by = ?').all(login);
 }
 
+function getForSupervisor(login) {
+  // Get assignments for a supervisor + all their children (agents)
+  const user = db.prepare('SELECT children FROM users WHERE login = ?').get(login);
+  const children = JSON.parse(user?.children || '[]');
+  const logins = [login, ...children];
+  const placeholders = logins.map(() => '?').join(',');
+  return db.prepare(`SELECT * FROM assignments WHERE operator_login IN (${placeholders}) ORDER BY assigned_at DESC`).all(...logins);
+}
+
+function remove(sdCode) {
+  return db.prepare('DELETE FROM assignments WHERE sd_code = ?').run(sdCode);
+}
+
+function removeBatch(sdCodes) {
+  db.exec('BEGIN');
+  try {
+    const stmt = db.prepare('DELETE FROM assignments WHERE sd_code = ?');
+    for (const sd of sdCodes) {
+      stmt.run(sd);
+    }
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+}
+
 function getAccessibleSdCodes(user) {
   if (user.role === 'admin') {
     // Admin sees all assigned SDs
@@ -136,6 +163,6 @@ function setRegions(targetLogin, regionCodes, assignedBy, userName) {
   return { regions: sorted };
 }
 
-module.exports = { getAll, getByOperator, getByAssigner, getAccessibleSdCodes, assign, assignBatch, getRegions, assignRegions, removeRegions, setRegions };
+module.exports = { getAll, getByOperator, getByAssigner, getForSupervisor, getAccessibleSdCodes, assign, assignBatch, remove, removeBatch, getRegions, assignRegions, removeRegions, setRegions };
 
 
