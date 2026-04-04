@@ -66,8 +66,12 @@ router.post('/sd', (req, res) => {
   }
 
   if (req.user.role === 'supervisor') {
+    // Ensure the agent exists in DB (may only exist in users.json so far)
+    const userService = require('../services/user.service');
+    userService.ensureUserFromLocalData(operatorLogin.toUpperCase());
+
     // Check if operatorLogin is a child
-    const targetUser = db.prepare('SELECT parent FROM users WHERE login = ?').get(operatorLogin);
+    const targetUser = db.prepare('SELECT parent FROM users WHERE login = ?').get(operatorLogin.toUpperCase());
     if (!targetUser || targetUser.parent !== req.user.login) {
       return res.status(403).json({ error: 'Vous ne pouvez assigner des SD qu\'à vos propres agents' });
     }
