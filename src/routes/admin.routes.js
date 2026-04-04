@@ -129,7 +129,8 @@ router.get('/users', (req, res) => {
         }));
         res.json(users);
     } catch (err) {
-        res.status(500).json({ error: 'Server error' });
+        console.error('Admin route error:', err);
+        res.status(500).json({ error: 'Server error: ' + err.message });
     }
 });
 
@@ -254,7 +255,8 @@ router.get('/users/:login/habitations', (req, res) => {
             formData: JSON.parse(h.form_data || '{}')
         })));
     } catch (err) {
-        res.status(500).json({ error: 'Server error' });
+        console.error('Admin route error:', err);
+        res.status(500).json({ error: 'Server error: ' + err.message });
     }
 });
 

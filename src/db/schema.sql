@@ -7,7 +7,8 @@ CREATE TABLE IF NOT EXISTS users (
   province TEXT,
   province_name TEXT,
   regions TEXT DEFAULT '[]',
-  children TEXT DEFAULT '[]'
+  children TEXT DEFAULT '[]',
+  is_disabled INTEGER DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS assignments (
