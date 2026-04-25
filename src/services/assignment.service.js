@@ -22,16 +22,19 @@ function getForSupervisor(login) {
   return db.prepare(`SELECT * FROM assignments WHERE operator_login IN (${placeholders}) ORDER BY assigned_at DESC`).all(...logins);
 }
 
-function remove(sdCode) {
+function remove(sdCode, operatorLogin) {
+  if (operatorLogin) {
+    return db.prepare('DELETE FROM assignments WHERE sd_code = ? AND operator_login = ?').run(sdCode, operatorLogin);
+  }
   return db.prepare('DELETE FROM assignments WHERE sd_code = ?').run(sdCode);
 }
 
-function removeBatch(sdCodes) {
+function removeBatch(assignments) {
   db.exec('BEGIN');
   try {
-    const stmt = db.prepare('DELETE FROM assignments WHERE sd_code = ?');
-    for (const sd of sdCodes) {
-      stmt.run(sd);
+    const stmt = db.prepare('DELETE FROM assignments WHERE sd_code = ? AND operator_login = ?');
+    for (const a of assignments) {
+      stmt.run(a.sdCode || a.sd_code, a.operatorLogin || a.operator_login);
     }
     db.exec('COMMIT');
   } catch (err) {

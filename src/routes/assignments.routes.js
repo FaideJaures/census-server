@@ -168,11 +168,10 @@ router.put('/regions', (req, res) => {
         req.user.login, 'rename_user', targetLogin, JSON.stringify({ newName: userName })
       );
     }
-
     // Remove all existing assignments for this operator, then add new ones
     const existing = assignService.getByOperator(targetLogin).map(a => a.sd_code);
     if (existing.length > 0) {
-      assignService.removeBatch(existing);
+      assignService.removeBatch(existing.map(sd => ({ sdCode: sd, operatorLogin: targetLogin })));
     }
     if (regions.length > 0) {
       assignService.assignBatch(
@@ -180,6 +179,8 @@ router.put('/regions', (req, res) => {
         req.user.login
       );
     }
+...
+    assignService.removeBatch(regions.map(sd => ({ sdCode: sd, operatorLogin: targetLogin })));
 
     db.prepare('INSERT INTO activity_log (login, action, target_id, details) VALUES (?, ?, ?, ?)').run(
       req.user.login, 'set_regions', targetLogin, JSON.stringify({ regions })
