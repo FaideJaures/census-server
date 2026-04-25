@@ -179,8 +179,6 @@ router.put('/regions', (req, res) => {
         req.user.login
       );
     }
-...
-    assignService.removeBatch(regions.map(sd => ({ sdCode: sd, operatorLogin: targetLogin })));
 
     db.prepare('INSERT INTO activity_log (login, action, target_id, details) VALUES (?, ?, ?, ?)').run(
       req.user.login, 'set_regions', targetLogin, JSON.stringify({ regions })
@@ -213,7 +211,7 @@ router.delete('/regions', (req, res) => {
       );
     }
 
-    assignService.removeBatch(regions);
+    assignService.removeBatch(regions.map(sd => ({ sdCode: sd, operatorLogin: targetLogin })));
 
     db.prepare('INSERT INTO activity_log (login, action, target_id, details) VALUES (?, ?, ?, ?)').run(
       req.user.login, 'remove_regions', targetLogin, JSON.stringify({ removed: regions })
