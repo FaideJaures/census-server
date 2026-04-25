@@ -64,7 +64,7 @@ function pull(user, since, page = 1, limit = 500) {
 
 function push(user, data) {
   const logId = startSyncLog(user.login, 'push');
-  const results = { accepted: 0, rejected: 0, conflicts: 0 };
+  const results = { accepted: 0, rejected: 0, conflicts: 0, movements: 0 };
 
   const assignmentResults = [];
 
@@ -106,6 +106,16 @@ function push(user, data) {
           }
         }
       }
+
+      // Process movements
+      if (data.movements && Array.isArray(data.movements)) {
+        const stmt = db.prepare('INSERT INTO movements (login, lat, lng, timestamp) VALUES (?, ?, ?, ?)');
+        for (const m of data.movements) {
+          stmt.run(user.login, m.lat, m.lng, m.timestamp);
+          results.movements++;
+        }
+      }
+
       db.exec('COMMIT');
     } catch (txErr) {
       db.exec('ROLLBACK');

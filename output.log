@@ -1,0 +1,9 @@
+[DB] Opening: C:\Users\faide\OneDrive\Bureau\study\capacitorJs\census-server\data\census.db
+Testing push...
+Success: {
+  accepted: 1,
+  rejected: 0,
+  conflicts: 0,
+  assignmentResults: [ { sdCode: '0101305112', status: 'success' } ],
+  serverTime: '2026-04-06T00:09:30.256Z'
+}

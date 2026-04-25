@@ -1,0 +1,9 @@
+[DB] Opening: C:\Users\faide\OneDrive\Bureau\study\capacitorJs\census-server\data\census.db
+Total users: 102
+8AZ matches: [
+  [Object: null prototype] {
+    login: '8AZ',
+    parent: null,
+    name: 'Superviseur 8AZ'
+  }
+]

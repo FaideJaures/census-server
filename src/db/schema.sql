@@ -12,13 +12,25 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS assignments (
-  sd_code TEXT PRIMARY KEY,
+  sd_code TEXT NOT NULL,
   operator_login TEXT NOT NULL,
   assigned_by TEXT NOT NULL,
   assigned_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (sd_code, operator_login),
   FOREIGN KEY (operator_login) REFERENCES users(login),
   FOREIGN KEY (assigned_by) REFERENCES users(login)
 );
+
+CREATE TABLE IF NOT EXISTS movements (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  login TEXT NOT NULL,
+  lat REAL NOT NULL,
+  lng REAL NOT NULL,
+  timestamp TEXT NOT NULL,
+  FOREIGN KEY (login) REFERENCES users(login)
+);
+CREATE INDEX IF NOT EXISTS idx_movements_login ON movements(login);
+CREATE INDEX IF NOT EXISTS idx_movements_timestamp ON movements(timestamp);
 
 CREATE TABLE IF NOT EXISTS habitations (
   id TEXT PRIMARY KEY,

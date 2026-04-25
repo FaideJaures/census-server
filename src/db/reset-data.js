@@ -1,3 +1,4 @@
+const fs = require('fs');
 const path = require('path');
 
 // Load env before importing db
@@ -5,34 +6,47 @@ require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 
 const db = require('./connection');
 
-console.log('[Reset] Starting data-only reset...');
+console.log('[Reset] Starting full schema reset...');
 
-// Tables to clear (preserving users and config)
-const tablesToClear = [
+const schemaPath = path.join(__dirname, 'schema.sql');
+const schema = fs.readFileSync(schemaPath, 'utf8');
+
+// Tables to drop in order (foreign keys might be an issue, so we use a pragmatic approach)
+const tablesToDrop = [
+  'refresh_tokens',
+  'sessions',
   'activity_log',
   'sync_log',
-  'sessions',
+  'habitations',
   'assignments',
-  'habitations'
+  'config',
+  'movements'
 ];
 
+db.exec('PRAGMA foreign_keys = OFF');
 db.exec('BEGIN');
 try {
-  for (const table of tablesToClear) {
-    db.exec(`DELETE FROM ${table}`);
-    console.log(`[Reset] Cleared table: ${table}`);
+  for (const table of tablesToDrop) {
+    db.exec(`DROP TABLE IF EXISTS ${table}`);
+    console.log(`[Reset] Dropped table: ${table}`);
   }
   
-  // Optionally update db_version in config if it exists
-  const updateVersion = db.prepare("INSERT OR REPLACE INTO config (key, value) VALUES ('db_version', ?)");
-  updateVersion.run(Date.now().toString());
+  // Re-create all tables
+  db.exec(schema);
+  console.log('[Reset] Schema re-created successfully.');
+
+  // Initialize db_version
+  db.prepare("INSERT OR REPLACE INTO config (key, value) VALUES ('db_version', ?)")
+    .run(Date.now().toString());
   
   db.exec('COMMIT');
-  console.log('[Reset] Data reset complete. User accounts and passwords preserved.');
+  console.log('[Reset] Full reset complete.');
 } catch (err) {
   db.exec('ROLLBACK');
   console.error('[Reset] Error during reset:', err);
   process.exit(1);
+} finally {
+  db.exec('PRAGMA foreign_keys = ON');
 }
 
 process.exit(0);

@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const db = require('../db/connection');
 const authMiddleware = require('../middleware/auth');
+const userService = require('../services/user.service');
 
 const router = Router();
 router.use(authMiddleware);
@@ -12,6 +13,9 @@ router.put('/:login/name', (req, res) => {
   if (!name) {
     return res.status(400).json({ error: 'name requis' });
   }
+
+  // Ensure target user is instantiated in the DB
+  userService.ensureUserFromLocalData(targetLogin);
 
   // Authorization check
   if (req.user.role === 'agent') {
