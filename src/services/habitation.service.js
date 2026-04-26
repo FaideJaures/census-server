@@ -50,11 +50,13 @@ function upsert(hab, user = null) {
   const sdCode = hab.sdCode || hab.sd_code;
   if (!sdCode || typeof sdCode !== 'string' || sdCode.trim() === '') return 'rejected';
 
-  // SD assignment permission check for agents
+  // SD assignment permission check for agents (relaxed to allow sub-regions)
   if (user && user.role !== 'admin' && user.role !== 'supervisor') {
     const assignments = require('./assignment.service').getByOperator(user.login);
     const assignedSds = assignments.map(a => a.sd_code);
-    if (!assignedSds.includes(sdCode)) {
+    const isAuthorized = assignedSds.some(assigned => sdCode === assigned || sdCode.startsWith(assigned));
+    if (!isAuthorized) {
+      console.warn(`[HabitationService] User ${user.login} rejected for SD ${sdCode}. Assigned: ${assignedSds.join(',')}`);
       return 'rejected';
     }
   }
