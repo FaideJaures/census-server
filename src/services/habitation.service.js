@@ -5,24 +5,24 @@ function getById(id) {
 }
 
 function getByAccessibleUser(user, since = null, page = 1, limit = 500) {
-  let query = `
-    SELECT h.* 
-    FROM habitations h
-    JOIN assignments a ON h.sd_code = a.sd_code
-  `;
+  let query;
   const params = [];
 
   if (user.role === 'admin') {
-    // Admin sees all assigned SDs
-  } else if (user.role === 'supervisor') {
-    const children = JSON.parse(user.children || '[]');
-    const logins = [user.login, ...children];
-    const placeholders = logins.map(() => '?').join(',');
-    query += ` WHERE a.operator_login IN (${placeholders})`;
-    params.push(...logins);
+    query = `SELECT h.* FROM habitations h`;
   } else {
-    query += ` WHERE a.operator_login = ?`;
-    params.push(user.login);
+    // For non-admins, we see habitations created by our team OR in our assigned regions
+    const children = JSON.parse(user.children || '[]');
+    const teamLogins = [user.login, ...children].map(l => (typeof l === 'string' ? l : l.login));
+    const placeholders = teamLogins.map(() => '?').join(',');
+
+    query = `
+      SELECT DISTINCT h.* 
+      FROM habitations h
+      LEFT JOIN assignments a ON h.sd_code LIKE a.sd_code || '%'
+      WHERE (a.operator_login IN (${placeholders}) OR h.created_by IN (${placeholders}))
+    `;
+    params.push(...teamLogins, ...teamLogins);
   }
 
   if (since) {
@@ -112,23 +112,23 @@ function upsert(hab, user = null) {
 }
 
 function getCountersForUser(user) {
-  let query = `
-    SELECT h.ilot_code, h.building_number, h.local_number 
-    FROM habitations h
-    JOIN assignments a ON h.sd_code = a.sd_code
-  `;
+  let query;
   const params = [];
 
   if (user.role === 'admin') {
-  } else if (user.role === 'supervisor') {
-    const children = JSON.parse(user.children || '[]');
-    const logins = [user.login, ...children];
-    const placeholders = logins.map(() => '?').join(',');
-    query += ` WHERE a.operator_login IN (${placeholders})`;
-    params.push(...logins);
+    query = `SELECT ilot_code, building_number, local_number FROM habitations`;
   } else {
-    query += ` WHERE a.operator_login = ?`;
-    params.push(user.login);
+    const children = JSON.parse(user.children || '[]');
+    const teamLogins = [user.login, ...children].map(l => (typeof l === 'string' ? l : l.login));
+    const placeholders = teamLogins.map(() => '?').join(',');
+
+    query = `
+      SELECT DISTINCT h.ilot_code, h.building_number, h.local_number 
+      FROM habitations h
+      LEFT JOIN assignments a ON h.sd_code LIKE a.sd_code || '%'
+      WHERE (a.operator_login IN (${placeholders}) OR h.created_by IN (${placeholders}))
+    `;
+    params.push(...teamLogins, ...teamLogins);
   }
 
   const rows = db.prepare(query).all(...params);
