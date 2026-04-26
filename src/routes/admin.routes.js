@@ -260,4 +260,23 @@ router.get('/users/:login/habitations', (req, res) => {
     }
 });
 
+// GET /api/admin/users/:login/movements — get movement history for a user
+router.get('/users/:login/movements', (req, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+    const targetLogin = req.params.login.toUpperCase();
+    try {
+        const movements = db.prepare(`
+            SELECT lat, lng, timestamp 
+            FROM movements 
+            WHERE login = ? 
+            ORDER BY timestamp DESC 
+            LIMIT 1000
+        `).all(targetLogin);
+        res.json(movements);
+    } catch (err) {
+        console.error('Admin movements error:', err);
+        res.status(500).json({ error: 'Server error: ' + err.message });
+    }
+});
+
 module.exports = router;
