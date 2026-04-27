@@ -12,6 +12,7 @@ function pull(user, since, page = 1, limit = 500) {
     // Get assignments for accessible SDs
     let assignments = [];
     let counters = {};
+    let locks = [];
     if (page === 1) {
       if (user.role === 'admin') {
         assignments = assignService.getAll();
@@ -20,8 +21,9 @@ function pull(user, since, page = 1, limit = 500) {
       } else {
         assignments = assignService.getByOperator(user.login);
       }
-      // Get counters using the new user-aware function
+      // Get counters and locks using the new user-aware function
       counters = habService.getCountersForUser(user);
+      locks = habService.getLocks();
     }
 
     // Format habitations for client consumption
@@ -53,6 +55,7 @@ function pull(user, since, page = 1, limit = 500) {
       habitations: formattedHabs,
       assignments: formattedAssignments,
       counters,
+      locks,
       serverTime: new Date().toISOString(),
     };
   } catch (err) {

@@ -96,4 +96,11 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
   revoked INTEGER DEFAULT 0,
   FOREIGN KEY (login) REFERENCES users(login)
 );
+CREATE TABLE IF NOT EXISTS sd_locks (
+  sd_code TEXT PRIMARY KEY,
+  locked_by TEXT,
+  locked_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (locked_by) REFERENCES users(login)
+);
+
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_login ON refresh_tokens(login);

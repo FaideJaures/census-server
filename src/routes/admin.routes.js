@@ -279,4 +279,37 @@ router.get('/users/:login/movements', (req, res) => {
     }
 });
 
+// GET /api/admin/locks — get all locked SDs
+router.get('/locks', (req, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+    try {
+        const locks = db.prepare('SELECT * FROM sd_locks').all();
+        res.json(locks);
+    } catch (err) {
+        console.error('Admin locks error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// POST /api/admin/locks — toggle lock on an SD
+router.post('/locks', (req, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+    const { sdCode, locked } = req.body;
+    if (!sdCode) return res.status(400).json({ error: 'sdCode requis' });
+
+    try {
+        if (locked) {
+            db.prepare('INSERT OR REPLACE INTO sd_locks (sd_code, locked_by) VALUES (?, ?)').run(sdCode, req.user.login);
+            db.prepare('INSERT INTO activity_log (login, action, target_id) VALUES (?, ?, ?)').run(req.user.login, 'lock_sd', sdCode);
+        } else {
+            db.prepare('DELETE FROM sd_locks WHERE sd_code = ?').run(sdCode);
+            db.prepare('INSERT INTO activity_log (login, action, target_id) VALUES (?, ?, ?)').run(req.user.login, 'unlock_sd', sdCode);
+        }
+        res.json({ sdCode, locked });
+    } catch (err) {
+        console.error('Toggle lock error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 module.exports = router;
