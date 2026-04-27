@@ -109,25 +109,38 @@ router.put('/users/:login/name', (req, res) => {
     }
 });
 
-// GET /api/admin/users — list all users with basic stats
+// GET /api/admin/users — list all users with basic stats (paginated)
 router.get('/users', (req, res) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+    const { page = 1, limit = 50 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
     try {
-        // Ensure is_disabled column exists (it's lazily created by the disable endpoint)
+        // Ensure is_disabled column exists
         try { db.exec('ALTER TABLE users ADD COLUMN is_disabled INTEGER DEFAULT 0'); } catch(e) { /* column already exists */ }
+        
         const users = db.prepare(`
             SELECT u.login, u.name, u.role, u.parent, u.children, u.regions, u.is_disabled,
                    (SELECT COUNT(*) FROM habitations h WHERE h.created_by = u.login) as habitation_count,
                    (SELECT MAX(s.last_seen_at) FROM sessions s WHERE s.login = u.login) as last_sync
             FROM users u
             ORDER BY u.role, u.login
-        `).all().map(u => ({
+            LIMIT ? OFFSET ?
+        `).all(parseInt(limit), offset).map(u => ({
             ...u,
             regions: JSON.parse(u.regions || '[]'),
             children: JSON.parse(u.children || '[]'),
             isDisabled: !!u.is_disabled
         }));
-        res.json(users);
+
+        const total = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
+
+        res.json({
+            users,
+            total,
+            page: parseInt(page),
+            limit: parseInt(limit)
+        });
     } catch (err) {
         console.error('Admin route error:', err);
         res.status(500).json({ error: 'Server error: ' + err.message });
@@ -275,6 +288,33 @@ router.get('/users/:login/movements', (req, res) => {
         res.json(movements);
     } catch (err) {
         console.error('Admin movements error:', err);
+        res.status(500).json({ error: 'Server error: ' + err.message });
+    }
+});
+
+// GET /api/admin/activity-log — get activity log (paginated)
+router.get('/activity-log', (req, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+    const { page = 1, limit = 50 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    try {
+        const logs = db.prepare(`
+            SELECT * FROM activity_log 
+            ORDER BY created_at DESC 
+            LIMIT ? OFFSET ?
+        `).all(parseInt(limit), offset);
+
+        const total = db.prepare('SELECT COUNT(*) as count FROM activity_log').get().count;
+
+        res.json({
+            logs,
+            total,
+            page: parseInt(page),
+            limit: parseInt(limit)
+        });
+    } catch (err) {
+        console.error('Admin activity-log error:', err);
         res.status(500).json({ error: 'Server error: ' + err.message });
     }
 });

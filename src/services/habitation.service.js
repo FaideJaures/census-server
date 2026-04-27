@@ -148,8 +148,37 @@ function getCountersForUser(user) {
   return { buildingCounters, localCounters };
 }
 
-function getLocks() {
-  return db.prepare('SELECT sd_code FROM sd_locks').all().map(l => l.sd_code);
+function getKPIsForUser(user) {
+  let query;
+  const params = [];
+
+  if (user.role === 'admin') {
+    query = `SELECT form_data FROM habitations`;
+  } else {
+    const children = JSON.parse(user.children || '[]');
+    const teamLogins = [user.login, ...children].map(l => (typeof l === 'string' ? l : l.login));
+    const placeholders = teamLogins.map(() => '?').join(',');
+
+    query = `
+      SELECT DISTINCT h.id, h.form_data 
+      FROM habitations h
+      LEFT JOIN assignments a ON h.sd_code LIKE a.sd_code || '%'
+      WHERE (a.operator_login IN (${placeholders}) OR h.created_by IN (${placeholders}))
+    `;
+    params.push(...teamLogins, ...teamLogins);
+  }
+
+  const rows = db.prepare(query).all(...params);
+  let numerote = 0, recense = 0, nonVisite = 0;
+  
+  for (const row of rows) {
+    const data = JSON.parse(row.form_data || '{}');
+    if (data.VC16A === '1') numerote++;
+    else if (data.VC16A === '2') recense++;
+    else nonVisite++;
+  }
+
+  return { numerote, recense, nonVisite, total: rows.length };
 }
 
-module.exports = { getById, getByAccessibleUser, getByCreator, getAll, upsert, getCountersForUser, getLocks };
+module.exports = { getById, getByAccessibleUser, getByCreator, getAll, upsert, getCountersForUser, getLocks, getKPIsForUser };

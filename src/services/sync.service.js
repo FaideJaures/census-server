@@ -2,17 +2,22 @@ const db = require('../db/connection');
 const habService = require('./habitation.service');
 const assignService = require('./assignment.service');
 
-function pull(user, since, page = 1, limit = 500) {
+function pull(user, since, page = 1, limit = 500, metaOnly = false) {
   const logId = startSyncLog(user.login, 'pull');
 
   try {
     // Get habitations using the new user-aware function (prevents large variable list crash)
-    const habitations = habService.getByAccessibleUser(user, since, page, limit);
+    let habitations = [];
+    if (!metaOnly) {
+      habitations = habService.getByAccessibleUser(user, since, page, limit);
+    }
 
     // Get assignments for accessible SDs
     let assignments = [];
     let counters = {};
     let locks = [];
+    let kpis = null;
+
     if (page === 1) {
       if (user.role === 'admin') {
         assignments = assignService.getAll();
@@ -24,6 +29,10 @@ function pull(user, since, page = 1, limit = 500) {
       // Get counters and locks using the new user-aware function
       counters = habService.getCountersForUser(user);
       locks = habService.getLocks();
+      
+      if (metaOnly) {
+        kpis = habService.getKPIsForUser(user);
+      }
     }
 
     // Format habitations for client consumption
@@ -56,6 +65,7 @@ function pull(user, since, page = 1, limit = 500) {
       assignments: formattedAssignments,
       counters,
       locks,
+      kpis,
       serverTime: new Date().toISOString(),
     };
   } catch (err) {

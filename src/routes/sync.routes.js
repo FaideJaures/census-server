@@ -31,7 +31,8 @@ router.get('/:login', (req, res) => {
       { ...user, children: user.children },
       since || null,
       parseInt(page, 10),
-      parseInt(limit, 10)
+      parseInt(limit, 10),
+      req.query.metaOnly === 'true'
     );
     res.json(result);
   } catch (err) {
