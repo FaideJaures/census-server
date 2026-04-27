@@ -50,9 +50,6 @@ function upsert(hab, user = null) {
   const sdCode = hab.sdCode || hab.sd_code;
   if (!sdCode || typeof sdCode !== 'string' || sdCode.trim() === '') return 'rejected';
 
-    }
-  }
-
   // Check if SD is locked
   const lock = db.prepare('SELECT sd_code FROM sd_locks WHERE ? LIKE sd_code || \'%\'').get(sdCode);
   if (lock) {
