@@ -180,5 +180,8 @@ function getKPIsForUser(user) {
 
   return { numerote, recense, nonVisite, total: rows.length };
 }
+function getLocks() {
+  return db.prepare('SELECT sd_code, locked_by, locked_at FROM sd_locks').all();
+}
 
 module.exports = { getById, getByAccessibleUser, getByCreator, getAll, upsert, getCountersForUser, getLocks, getKPIsForUser };
